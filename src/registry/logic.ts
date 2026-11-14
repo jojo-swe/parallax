@@ -4,6 +4,7 @@
  * always agree.
  */
 import { usdToMillicredits } from "../config/economy";
+import { isLocalEndpoint } from "./local";
 import { quoteUsd } from "./quote";
 import type { BuiltRequest, Condition, Control, MediaRef, MediaSlot, ModelDef, Option, Value, Values } from "./types";
 
@@ -132,6 +133,8 @@ export function quoteJob(model: ModelDef, draft: JobDraft): JobQuote {
     media: draft.media ?? placeholderMedia(draft.filled),
     count: perJobCount,
   });
+  // A model on the operator's own machine costs nothing, not even the one-step minimum.
+  if (isLocalEndpoint(request.endpoint)) return { millicredits: 0, perJob: 0, usdPerJob: 0, jobs, perJobCount, exact: true, metered: false, request };
   const q = quoteUsd(request.endpoint, request.body);
   const perJob = usdToMillicredits(q.usd);
   return { millicredits: perJob * jobs, perJob, usdPerJob: q.usd, jobs, perJobCount, exact: q.exact, metered: q.metered, request };

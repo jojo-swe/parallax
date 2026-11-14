@@ -5,10 +5,11 @@
  */
 import { musicModels, speechModels } from "./audio";
 import { imageModels } from "./image";
+import { localModels } from "./local";
 import { videoModels } from "./video";
 import type { ModelDef } from "./types";
 
-export const models: ModelDef[] = [...imageModels, ...videoModels, ...speechModels, ...musicModels];
+export const models: ModelDef[] = [...imageModels, ...localModels, ...videoModels, ...speechModels, ...musicModels];
 
 const byId = new Map(models.map((m) => [m.id, m]));
 
@@ -29,4 +30,5 @@ export function defaultModel(surface: string): ModelDef | undefined {
 
 export * from "./types";
 export * from "./logic";
+export { isLocalEndpoint } from "./local";
 export { quoteUsd, catalogEndpoint } from "./quote";

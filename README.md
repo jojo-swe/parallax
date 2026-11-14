@@ -115,6 +115,7 @@ Everything is optional. Put them in `.env.local`.
 | `TREG_TOKEN` | The gateway key. Without it the app runs in mock mode |
 | `TREG_MODE` | Force `mock` or `live` |
 | `TREG_DAILY_BUDGET_USD` | Stop paid requests after this many dollars in 24 hours |
+| `COMFYUI_BASE_URL`, `COMFYUI_AUTH_TOKEN` | A ComfyUI server on this machine, for free local images. See [Local models](#local-models-comfyui). Without the URL the model does not work |
 | `PARALLAX_DATA_DIR` | Where the database and files live. Default `./data` |
 | `PARALLAX_DEMO_SEED` | `1` adds the demo accounts and posts to a new data folder |
 | `PARALLAX_DEMO_BILLING` | `off` closes the free top-up button |
@@ -124,6 +125,17 @@ Everything is optional. Put them in `.env.local`.
 | `ANTHROPIC_API_KEY`, `ORGO_API_KEY`, `COMPOSIO_API_KEY` | The agent's model, its cloud computer, and its app connections |
 | `SUPER_ENGINE` | `hermes` runs the Supercomputer chat on a Hermes agent instead of the built-in loop |
 | `HERMES_URL`, `HERMES_API_KEY_FILE`, `SUPER_ENGINE_TOKEN_FILE`, `SUPER_ENGINE_NAME` | Where the agent is, its key, the token it uses to call Parallax's tools, and the name members see |
+
+## Local models (ComfyUI)
+
+Set `COMFYUI_BASE_URL` (for example `http://127.0.0.1:8188`) and the image studio gets a
+**ComfyUI** model: text to image, or image to image when you add one reference. It costs no
+credits and does not use the gateway, so it also works with no `TREG_TOKEN`. Leave the
+checkpoint field empty to use the server's first checkpoint, or type a file name from its
+`models/checkpoints` folder.
+
+It runs the two graphs in `workflows/comfyui/`. Images only, no video yet. Point the URL only
+at your own ComfyUI. The optional token is sent there.
 
 ## Run it for real
 
@@ -143,6 +155,7 @@ internet.
 npm run typecheck
 npm run lint
 npm run check:registry     # every model, every combination of controls, has an exact price
+npm run test:providers     # local backends (ComfyUI) against a mocked fetch, no network
 npm run build
 npm test
 ```

@@ -9,6 +9,7 @@ import { ApiError } from "./errors";
 import { ResultError, mediaFromReply, mediaFromTask } from "./extract";
 import type { JobRow } from "./jobs";
 import { mockDelayMs, mockMedia, mockShouldFail } from "./mock";
+import { ComfyError, comfyConfig, comfyPoll, comfySubmit, isLocalEndpoint, type ComfyRequest } from "./providers/comfyui";
 import { TregUnreachable, classify, redact, taskFailure, taskOutcome, tregCall, tregMode, tregTask, tregUploadMedia, type TregTask } from "./treg";
 
 /**
@@ -147,6 +148,9 @@ async function start(job: JobRow) {
   const attempts = job.attempts + 1;
   const output = outputOf(job);
 
+  // Local backends do not go through the gateway, so treg's mock mode does not apply to them.
+  if (isLocalEndpoint(job.endpoint)) return startLocal(job, attempts);
+
   if (tregMode() === "mock") {
     run("UPDATE jobs SET treg_call_id = 'mock', next_poll_at = ? WHERE id = ?", now + mockDelayMs(output), job.id);
     return;
@@ -254,6 +258,8 @@ const sleep = (ms: number) => new Promise((done) => setTimeout(done, ms));
 async function poll(job: JobRow) {
   const output = outputOf(job);
 
+  if (isLocalEndpoint(job.endpoint)) return pollLocal(job, output);
+
   if (job.treg_call_id === "mock") {
     if (mockShouldFail(job.prompt)) return fail(job.id, "provider_error", "The mock model fails on purpose when the prompt contains [fail].");
     const files = await mockMedia({ output, prompt: job.prompt, params: parseJson(job.params, {}), count: job.expect_count, seed: job.id });
@@ -289,6 +295,49 @@ async function poll(job: JobRow) {
     files = await mediaFromTask(job.endpoint, task, output, job.expect_count);
   }
   await finish(job, files);
+}
+
+/* ------------------------------- local backends ------------------------------ */
+
+/**
+ * ComfyUI on this machine. The backend's own job id goes in `treg_call_id`: the column
+ * only means "the id to poll with", so no migration is needed.
+ */
+async function startLocal(job: JobRow, attempts: number) {
+  const cfg = comfyConfig();
+  if (!cfg) return fail(job.id, "model_unavailable", "ComfyUI is not set up on this server. Set COMFYUI_BASE_URL.");
+  const stored = parseJson<{ body?: unknown }>(job.request, {});
+  try {
+    const body = (await fillAssets(job.user_id, stored.body ?? {})) as ComfyRequest;
+    const promptId = await comfySubmit(cfg, body);
+    run("UPDATE jobs SET treg_call_id = ?, next_poll_at = ? WHERE id = ?", promptId, Date.now() + 2000, job.id);
+  } catch (err) {
+    if (err instanceof ApiError) return fail(job.id, "invalid_request", "A file this generation uses was removed.");
+    if (!(err instanceof ComfyError)) throw err;
+    if (err.unreachable) return retryOrFail(job, attempts, err.message);
+    return fail(job.id, "provider_error", err.message);
+  }
+}
+
+async function pollLocal(job: JobRow, output: MediaType) {
+  const cfg = comfyConfig();
+  if (!cfg) return fail(job.id, "model_unavailable", "ComfyUI is not set up on this server. Set COMFYUI_BASE_URL.");
+  const later = (ms: number) => void run("UPDATE jobs SET next_poll_at = ? WHERE id = ? AND status = 'running'", Date.now() + ms, job.id);
+  let result;
+  try {
+    result = await comfyPoll(cfg, job.treg_call_id!, job.expect_count);
+  } catch (err) {
+    if (!(err instanceof ComfyError)) throw err;
+    if (!err.unreachable) return fail(job.id, "provider_error", err.message);
+    if (expired(job, output)) return fail(job.id, "timeout", TOO_SLOW);
+    return later(5000);
+  }
+  if (result.state === "failed") return fail(job.id, "provider_error", result.error);
+  if (result.state === "running") {
+    if (expired(job, output)) return fail(job.id, "timeout", TOO_SLOW);
+    return later(2000);
+  }
+  await finish(job, result.files);
 }
 
 /* ---------------------------------- ending --------------------------------- */

@@ -6,7 +6,7 @@
  * so this runs before every build.
  */
 import { formatCredits, usdToMillicredits } from "../src/config/economy";
-import { catalogEndpoint, matches, models, quoteJob, resolveValues, type Control, type Filled, type ModelDef } from "../src/registry";
+import { catalogEndpoint, isLocalEndpoint, matches, models, quoteJob, resolveValues, type Control, type Filled, type ModelDef } from "../src/registry";
 
 function candidates(c: Control): unknown[] {
   switch (c.type) {
@@ -57,6 +57,14 @@ for (const model of models) {
         const prompt = model.prompt ? "A paper boat crosses a quiet pond at sunrise." : "";
         const q = quoteJob(model, { prompt, values, filled, count });
         const where = `${model.id} ${JSON.stringify(values)} slots=${JSON.stringify(filled)} count=${count}`;
+        // Local backends have no price row by design: they are free.
+        if (isLocalEndpoint(q.request.endpoint)) {
+          if (q.usdPerJob !== 0) problems.push(`local model must be free: ${where}`);
+          if (JSON.stringify(q.request).includes("undefined")) problems.push(`undefined in request: ${where}`);
+          low = Math.min(low, q.millicredits);
+          high = Math.max(high, q.millicredits);
+          continue;
+        }
         for (const [name, allowed] of Object.entries(catalogEndpoint(q.request.endpoint)?.headers ?? {})) {
           const sent = q.request.headers?.[name];
           if (sent === undefined) problems.push(`missing required header "${name}" on ${q.request.endpoint}: ${where}`);
