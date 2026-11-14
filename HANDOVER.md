@@ -23,7 +23,7 @@ Parallax lacks: local and alternative generation backends.
   - `src/server/jobs.ts` accepts local endpoints and refuses them when the URL is not set
   - `workflows/comfyui/txt2img.json`, `img2img.json` the shipped graphs
   - `tests/providers/comfyui.test.ts` mocked tests, run with `npm run test:providers`
-- **ArgoLink backend (branch `agent/claude/argolink-backend`, not in `main` until merged):** 11
+- **ArgoLink backend (merged into `main`):** 11
   models with vendor "ArgoLink" (Grok image and video, Seedance 2.5 / edit / extend, Seedance 2.0 /
   Fast / Mini, Wan 3.0 / Prime, Hailuo H3), called with `ARGOLINK_API_KEY`, no gateway. Same local
   endpoint idea as ComfyUI: endpoint ids `argolink.image` and `argolink.video`, 0 credits quoted.
@@ -134,4 +134,4 @@ npm run typecheck && npm run check:registry && npm run test:providers && npm run
   Stale branches that can be deleted: `agent/claude/comfyui-provider`, `agent/claude/handover-real-test`
   (both already contained in `main`).
 - 2026-11-14, Claude Code: ported the ArgoLink adapter from `open-higgsfield-multi` as a local
-  backend (11 models, own key, mocked tests) on branch `agent/claude/argolink-backend`. Not merged.
+  backend (11 models, own key, mocked tests) on branch `agent/claude/argolink-backend`, then fast-forwarded into `main` on the owner's say-so.
