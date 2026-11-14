@@ -45,6 +45,29 @@ Parallax lacks: local and alternative generation backends.
   test files call `os.killpg`, which does not exist there. Run them with a `sitecustomize.py` on
   `PYTHONPATH` that defines `os.killpg` and `signal.SIGKILL`; this is a harness issue, not the code.
 
+## Picking this up on another machine
+
+```bash
+git clone https://github.com/jojo-swe/parallax.git && cd parallax
+git remote add upstream https://github.com/nickvasilescu/parallax.git
+npm ci                       # Node >= 22.13 (built-in SQLite)
+cp .env.example .env.local   # leave TREG_TOKEN empty for mock mode; no secrets in git
+npm run typecheck && npm run check:registry && npm run test:providers && npm run build
+```
+
+- Nothing from the first machine is needed: no database, no keys, no local-only files.
+- To use ComfyUI: run it, set `COMFYUI_BASE_URL` (default `http://127.0.0.1:8188`) and
+  `COMFYUI_CHECKPOINT` to an **SD 1.x** checkpoint name in `.env.local`. Use the ComfyUI install's
+  own Python environment (the one with torch and CUDA), not a bare one.
+- Real end-to-end check: start Parallax on port 3100 with those variables, then
+  `node scripts/comfy-smoke.mjs <output-dir>`. It makes a guest, runs text to image and image to
+  image, saves both pictures and prints the balance (it must stay 60000, the model is free).
+- Python suite on Windows: `tests/run.py` calls `os.killpg`, which Windows lacks. Put
+  `scripts/windows` on `PYTHONPATH` (it holds a `sitecustomize.py` that fills the gap) and run
+  `python tests/run.py ...` from the repo root. Linux and macOS need nothing.
+- Git: `main` is this fork's default. Work on `agent/<tool>/<topic>` branches. Do not push to
+  `main` or open a PR against upstream unless the owner says so.
+
 ## Not verified
 
 - Only SD 1.5 checkpoints were tried on the real server. SDXL, Turbo, FLUX and video checkpoints
@@ -82,3 +105,8 @@ Parallax lacks: local and alternative generation backends.
 - 2026-11-14, Claude Code: ran the ComfyUI model against the real local ComfyUI with
   `COMFYUI_CHECKPOINT=dreamshaper_8.safetensors`: text to image and image to image both worked.
   Corrected an earlier wrong note that the install had no torch (the wrong Python was used).
+- 2026-11-14, Claude Code: prepared the hand-over to another machine: setup steps above, the
+  Windows test shim (`scripts/windows`) and the real-server smoke script (`scripts/comfy-smoke.mjs`)
+  are now in the repo. Branch `agent/claude/handover-other-pc`; `main` is untouched by this.
+  Stale branches that can be deleted: `agent/claude/comfyui-provider`, `agent/claude/handover-real-test`
+  (both already contained in `main`).
