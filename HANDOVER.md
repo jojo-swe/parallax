@@ -26,12 +26,20 @@ Parallax lacks: local and alternative generation backends.
 
 ## Verified
 
-- `typecheck`, `check:registry` (40 models), `test:providers` (10 tests) and `build` pass; lint has
+- `typecheck`, `check:registry` (40 models), `test:providers` (11 tests) and `build` pass; lint has
   0 errors (25 upstream warnings).
 - End to end against a stand-in ComfyUI (a small fake HTTP server, not the real thing): a guest
   submitted two text-to-image jobs and one image-to-image job, all succeeded, files were saved as
   assets, and the balance stayed at 60000.
 
+- **Real ComfyUI (v0.42.1, RTX 4080), checkpoint `dreamshaper_8.safetensors` set through
+  `COMFYUI_CHECKPOINT`:** a guest's text-to-image job (512x512) succeeded in 7 s and an
+  image-to-image job using that picture as reference in 12 s. Both images were real pictures (a
+  fox in snow, then a painted version keeping the pose), saved as assets, and the balance stayed
+  at 60000. Run from the install's own `ComfyUI\.venv` Python (it has torch 2.12.1+cu130 with
+  CUDA); the `standalone-env` folder next to it has no torch and is not the one the app uses.
+  Output and input folders were redirected to a scratch folder, so nothing was written to the
+  install's own folders.
 - Parallax's own Python suite (`tests/*.py`, 12 files, 937 checks) passes with these changes,
   including `core_e2e` and `core_recovery` (the worker path). On Windows `tests/run.py` and two
   test files call `os.killpg`, which does not exist there. Run them with a `sitecustomize.py` on
@@ -39,10 +47,8 @@ Parallax lacks: local and alternative generation backends.
 
 ## Not verified
 
-- Never run against a **real ComfyUI**. Workflow node names, checkpoint handling and the
-  `/history` shape come from the old repo's mocked tests. The local ComfyUI install at
-  `P:\Comfy-Desktop` has no working Python environment (`torch` is missing), so it would not
-  start; nothing was installed into it.
+- Only SD 1.5 checkpoints were tried on the real server. SDXL, Turbo, FLUX and video checkpoints
+  need different graphs (steps, cfg, loaders) and are not supported.
 - The browser walk-throughs (`tests/ui/*.mjs`, need Chrome) were not run.
 - The server's first checkpoint is arbitrary. On the dev machine the checkpoint folder mixes
   SD 1.5, SDXL, FLUX and video models, and the shipped graphs only suit SD 1.x. Set
@@ -61,7 +67,8 @@ Parallax lacks: local and alternative generation backends.
 
 ## Next steps
 
-- Run the ComfyUI model against a real local server and record what fails.
+- Add graphs for SDXL, Turbo and FLUX checkpoints if wanted (the shipped graphs are SD 1.x only),
+  or let the studio pick a graph from the checkpoint.
 - Decide whether this fork stays public (a GitHub fork of a public repo cannot be made private) or
   moves to a private copy.
 - Decide on ArgoLink.
@@ -72,3 +79,6 @@ Parallax lacks: local and alternative generation backends.
 
 - 2026-11-14, Claude Code: forked Parallax, added the ComfyUI local backend on branch
   `agent/claude/comfyui-provider`, pushed to `origin` (public fork) and fast-forwarded into `main` on the owner's say-so.
+- 2026-11-14, Claude Code: ran the ComfyUI model against the real local ComfyUI with
+  `COMFYUI_CHECKPOINT=dreamshaper_8.safetensors`: text to image and image to image both worked.
+  Corrected an earlier wrong note that the install had no torch (the wrong Python was used).
