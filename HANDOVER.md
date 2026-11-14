@@ -61,4 +61,4 @@ Parallax lacks: local and alternative generation backends.
 ## Log
 
 - 2026-11-14, Claude Code: forked Parallax, added the ComfyUI local backend on branch
-  `agent/claude/comfyui-provider`. Not pushed.
+  `agent/claude/comfyui-provider`, pushed to `origin` (public fork). Not merged to `main`.
