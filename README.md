@@ -115,7 +115,7 @@ Everything is optional. Put them in `.env.local`.
 | `TREG_TOKEN` | The gateway key. Without it the app runs in mock mode |
 | `TREG_MODE` | Force `mock` or `live` |
 | `TREG_DAILY_BUDGET_USD` | Stop paid requests after this many dollars in 24 hours |
-| `COMFYUI_BASE_URL`, `COMFYUI_AUTH_TOKEN` | A ComfyUI server on this machine, for free local images. See [Local models](#local-models-comfyui). Without the URL the model does not work |
+| `COMFYUI_BASE_URL`, `COMFYUI_AUTH_TOKEN`, `COMFYUI_CHECKPOINT` | A ComfyUI server on this machine, for free local images. See [Local models](#local-models-comfyui). Without the URL the model does not work |
 | `PARALLAX_DATA_DIR` | Where the database and files live. Default `./data` |
 | `PARALLAX_DEMO_SEED` | `1` adds the demo accounts and posts to a new data folder |
 | `PARALLAX_DEMO_BILLING` | `off` closes the free top-up button |
@@ -130,9 +130,11 @@ Everything is optional. Put them in `.env.local`.
 
 Set `COMFYUI_BASE_URL` (for example `http://127.0.0.1:8188`) and the image studio gets a
 **ComfyUI** model: text to image, or image to image when you add one reference. It costs no
-credits and does not use the gateway, so it also works with no `TREG_TOKEN`. Leave the
-checkpoint field empty to use the server's first checkpoint, or type a file name from its
-`models/checkpoints` folder.
+credits and does not use the gateway, so it also works with no `TREG_TOKEN`. Type a checkpoint
+file name from the server's `models/checkpoints` folder in the studio, or set
+`COMFYUI_CHECKPOINT` to use one by default. With neither, the server's first checkpoint is
+used, which is arbitrary. The graphs are plain SD 1.x style (20 steps, cfg 7), so pick an SD 1.5
+checkpoint, not a Turbo, FLUX or video one.
 
 It runs the two graphs in `workflows/comfyui/`. Images only, no video yet. Point the URL only
 at your own ComfyUI. The optional token is sent there.

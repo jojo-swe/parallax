@@ -30,6 +30,8 @@ export const COMFYUI_DEFAULT_BASE = "http://127.0.0.1:8188";
 export interface ComfyConfig {
   baseUrl: string;
   token?: string;
+  /** Used when a request names no checkpoint. Without it the server's first one is used, which is arbitrary. */
+  checkpoint?: string;
   fetch?: typeof fetch;
 }
 
@@ -37,7 +39,7 @@ export interface ComfyConfig {
 export function comfyConfig(env: Record<string, string | undefined> = process.env): ComfyConfig | null {
   const base = env.COMFYUI_BASE_URL?.trim();
   if (!base) return null;
-  return { baseUrl: base.replace(/\/$/, ""), token: env.COMFYUI_AUTH_TOKEN?.trim() || undefined };
+  return { baseUrl: base.replace(/\/$/, ""), token: env.COMFYUI_AUTH_TOKEN?.trim() || undefined, checkpoint: env.COMFYUI_CHECKPOINT?.trim() || undefined };
 }
 
 /** `unreachable` is true when nothing answered, so the worker may try again. */
@@ -68,7 +70,7 @@ export async function comfySubmit(cfg: ComfyConfig, req: ComfyRequest): Promise<
   const reference = req.reference ? Buffer.from(req.reference, "base64") : null;
   const graph = JSON.parse(readFileSync(path.join(SHIPPED, reference ? "img2img.json" : "txt2img.json"), "utf8")) as unknown;
 
-  let checkpoint = req.checkpoint?.trim() ?? "";
+  let checkpoint = req.checkpoint?.trim() || cfg.checkpoint || "";
   if (graphUsesCheckpoint(graph) && !checkpoint) {
     checkpoint = checkpointsFromObjectInfo(await send(cfg, "GET", "/object_info/CheckpointLoaderSimple"))[0] ?? "";
     if (!checkpoint) throw new ComfyError("ComfyUI has no checkpoints. Put one in its models/checkpoints folder.");

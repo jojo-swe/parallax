@@ -32,11 +32,21 @@ Parallax lacks: local and alternative generation backends.
   submitted two text-to-image jobs and one image-to-image job, all succeeded, files were saved as
   assets, and the balance stayed at 60000.
 
+- Parallax's own Python suite (`tests/*.py`, 12 files, 937 checks) passes with these changes,
+  including `core_e2e` and `core_recovery` (the worker path). On Windows `tests/run.py` and two
+  test files call `os.killpg`, which does not exist there. Run them with a `sitecustomize.py` on
+  `PYTHONPATH` that defines `os.killpg` and `signal.SIGKILL`; this is a harness issue, not the code.
+
 ## Not verified
 
 - Never run against a **real ComfyUI**. Workflow node names, checkpoint handling and the
-  `/history` shape come from the old repo's mocked tests.
-- `npm test` (Python and Chrome walk-throughs) was not run.
+  `/history` shape come from the old repo's mocked tests. The local ComfyUI install at
+  `P:\Comfy-Desktop` has no working Python environment (`torch` is missing), so it would not
+  start; nothing was installed into it.
+- The browser walk-throughs (`tests/ui/*.mjs`, need Chrome) were not run.
+- The server's first checkpoint is arbitrary. On the dev machine the checkpoint folder mixes
+  SD 1.5, SDXL, FLUX and video models, and the shipped graphs only suit SD 1.x. Set
+  `COMFYUI_CHECKPOINT`.
 - The model shows in the picker even when `COMFYUI_BASE_URL` is unset; submitting then fails with a
   clear message. The registry is shared with the browser and cannot read the server's environment.
 

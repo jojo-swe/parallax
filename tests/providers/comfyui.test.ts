@@ -57,7 +57,18 @@ test("history: empty is running, error carries the exception message, outputs co
 
 test("config is off without COMFYUI_BASE_URL and trims the slash", () => {
   assert.equal(comfyConfig({}), null);
-  assert.deepEqual(comfyConfig({ COMFYUI_BASE_URL: "http://127.0.0.1:8188/", COMFYUI_AUTH_TOKEN: " t " }), { baseUrl: "http://127.0.0.1:8188", token: "t" });
+  assert.deepEqual(comfyConfig({ COMFYUI_BASE_URL: "http://127.0.0.1:8188/", COMFYUI_AUTH_TOKEN: " t " }), { baseUrl: "http://127.0.0.1:8188", token: "t", checkpoint: undefined });
+});
+
+test("the configured default checkpoint beats the server's first, and a request beats both", async () => {
+  const routes = { "POST /prompt": () => json({ prompt_id: "p4", node_errors: {} }) };
+  const a = fake(routes);
+  await comfySubmit({ ...a.cfg, checkpoint: "mine.safetensors" }, { prompt: "x" });
+  assert.match(JSON.stringify(a.calls.find((c) => c.path === "/prompt")!.body), /mine\.safetensors/);
+  assert.ok(!a.calls.some((c) => c.path.startsWith("/object_info")), "no lookup when a default is set");
+  const b = fake(routes);
+  await comfySubmit({ ...b.cfg, checkpoint: "mine.safetensors" }, { prompt: "x", checkpoint: "asked.safetensors" });
+  assert.match(JSON.stringify(b.calls.find((c) => c.path === "/prompt")!.body), /asked\.safetensors/);
 });
 
 test("text to image uses the first checkpoint and queues a filled graph", async () => {
