@@ -1,15 +1,17 @@
 /**
- * Models that run on the operator's own machine instead of the treg gateway. They are free:
- * no catalog price row exists for them, so they quote $0. The server only runs them when
- * their backend is configured (see `src/server/providers`).
+ * Models served by a backend the operator runs or keys themselves instead of the treg gateway
+ * (ComfyUI on their machine, ArgoLink with their own key). No catalog price row exists for
+ * them, so they quote $0. The server only runs them when their backend is configured
+ * (see `src/server/providers`).
  */
+import { ARGOLINK_PREFIX, argolinkModels } from "./argolink";
 import { aspect, compact, opt, resolution, text } from "./helpers";
 import type { ModelDef } from "./types";
 
 export const COMFYUI_ENDPOINT_ID = "comfyui.image";
 
 /** Endpoint ids the worker runs on a local backend instead of sending to the treg gateway. */
-export const isLocalEndpoint = (endpoint: string) => endpoint.startsWith("comfyui.");
+export const isLocalEndpoint = (endpoint: string) => endpoint.startsWith("comfyui.") || endpoint.startsWith(ARGOLINK_PREFIX);
 
 export const localModels: ModelDef[] = [
   {
@@ -49,4 +51,5 @@ export const localModels: ModelDef[] = [
       };
     },
   },
+  ...argolinkModels,
 ];

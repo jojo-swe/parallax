@@ -116,6 +116,7 @@ Everything is optional. Put them in `.env.local`.
 | `TREG_MODE` | Force `mock` or `live` |
 | `TREG_DAILY_BUDGET_USD` | Stop paid requests after this many dollars in 24 hours |
 | `COMFYUI_BASE_URL`, `COMFYUI_AUTH_TOKEN`, `COMFYUI_CHECKPOINT` | A ComfyUI server on this machine, for free local images. See [Local models](#local-models-comfyui). Without the URL the model does not work |
+| `ARGOLINK_API_KEY`, `ARGOLINK_BASE_URL` | Your own ArgoLink key, for the ArgoLink models. See [Local models](#local-models-comfyui). Without the key they do not work |
 | `PARALLAX_DATA_DIR` | Where the database and files live. Default `./data` |
 | `PARALLAX_DEMO_SEED` | `1` adds the demo accounts and posts to a new data folder |
 | `PARALLAX_DEMO_BILLING` | `off` closes the free top-up button |
@@ -138,6 +139,19 @@ checkpoint, not a Turbo, FLUX or video one.
 
 It runs the two graphs in `workflows/comfyui/`. Images only, no video yet. Point the URL only
 at your own ComfyUI. The optional token is sent there.
+
+### ArgoLink
+
+Set `ARGOLINK_API_KEY` and eleven models from vendor **ArgoLink** run with your own key instead of
+the gateway: Grok Imagine (image, and Grok video), Seedance 2.5 (also edit and extend), Seedance
+2.0, Fast and Mini, Wan 3.0 and Prime, and Hailuo H3. Reference pictures are uploaded to ArgoLink
+first; a start frame, an end frame or up to four reference images are supported where the model
+takes them. Images come back on the call, videos are polled.
+
+Careful: ArgoLink bills **your** account, and these models quote 0 credits, so every member who can
+sign in can spend your key. Run Parallax for yourself, or leave the key unset. A request is never
+sent twice, so a dropped connection ends the job instead of risking a second charge. The models
+are listed even without a key, and refuse to run with a message that names the variable.
 
 ## Run it for real
 

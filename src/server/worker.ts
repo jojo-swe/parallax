@@ -9,8 +9,9 @@ import { ApiError } from "./errors";
 import { ResultError, mediaFromReply, mediaFromTask } from "./extract";
 import type { JobRow } from "./jobs";
 import { mockDelayMs, mockMedia, mockShouldFail } from "./mock";
+import { ARGOLINK_PREFIX, ArgoError, argoConfig, argoPoll, argoSubmit, type ArgoRequest } from "./providers/argolink";
 import { ComfyError, comfyConfig, comfyPoll, comfySubmit, isLocalEndpoint, type ComfyRequest } from "./providers/comfyui";
-import { TregUnreachable, classify, redact, taskFailure, taskOutcome, tregCall, tregMode, tregTask, tregUploadMedia, type TregTask } from "./treg";
+import { TregUnreachable, classify, downloadResult, redact, taskFailure, taskOutcome, tregCall, tregMode, tregTask, tregUploadMedia, type TregTask } from "./treg";
 
 /**
  * The worker: one loop inside the server process that moves jobs along.
@@ -136,8 +137,9 @@ function sweep(minAgeMs: number) {
   }
 }
 
-/** Google's routes are never answered from a stored copy, so sending twice could charge twice. */
-const replayable = (endpoint: string) => !endpoint.startsWith("google-ai.");
+/** Google's routes and ArgoLink's are never answered from a stored copy, so sending twice could charge twice. */
+const replayable = (endpoint: string) => !endpoint.startsWith("google-ai.") && !isArgo(endpoint);
+const isArgo = (endpoint: string) => endpoint.startsWith(ARGOLINK_PREFIX);
 
 /* --------------------------------- submit --------------------------------- */
 
@@ -149,7 +151,7 @@ async function start(job: JobRow) {
   const output = outputOf(job);
 
   // Local backends do not go through the gateway, so treg's mock mode does not apply to them.
-  if (isLocalEndpoint(job.endpoint)) return startLocal(job, attempts);
+  if (isLocalEndpoint(job.endpoint)) return isArgo(job.endpoint) ? startArgo(job) : startLocal(job, attempts);
 
   if (tregMode() === "mock") {
     run("UPDATE jobs SET treg_call_id = 'mock', next_poll_at = ? WHERE id = ?", now + mockDelayMs(output), job.id);
@@ -258,7 +260,7 @@ const sleep = (ms: number) => new Promise((done) => setTimeout(done, ms));
 async function poll(job: JobRow) {
   const output = outputOf(job);
 
-  if (isLocalEndpoint(job.endpoint)) return pollLocal(job, output);
+  if (isLocalEndpoint(job.endpoint)) return isArgo(job.endpoint) ? pollArgo(job, output) : pollLocal(job, output);
 
   if (job.treg_call_id === "mock") {
     if (mockShouldFail(job.prompt)) return fail(job.id, "provider_error", "The mock model fails on purpose when the prompt contains [fail].");
@@ -336,6 +338,50 @@ async function pollLocal(job: JobRow, output: MediaType) {
   if (result.state === "running") {
     if (expired(job, output)) return fail(job.id, "timeout", TOO_SLOW);
     return later(2000);
+  }
+  await finish(job, result.files);
+}
+
+/**
+ * ArgoLink with the operator's key. Images answer on the submit call and finish there. Videos
+ * return a request id, kept in `treg_call_id` like ComfyUI's. A submit is never sent twice:
+ * ArgoLink has no idempotency key here, so a dropped connection ends the job instead.
+ */
+async function startArgo(job: JobRow) {
+  const cfg = argoConfig();
+  if (!cfg) return fail(job.id, "model_unavailable", "ArgoLink is not set up on this server. Set ARGOLINK_API_KEY.");
+  const stored = parseJson<{ body?: unknown }>(job.request, {});
+  let started;
+  try {
+    const body = (await fillAssets(job.user_id, stored.body ?? {})) as ArgoRequest;
+    started = await argoSubmit({ ...cfg, download: downloadResult }, body, job.expect_count);
+  } catch (err) {
+    if (err instanceof ApiError) return fail(job.id, "invalid_request", "A file this generation uses was removed.");
+    if (!(err instanceof ArgoError)) throw err;
+    if (err.unreachable) return fail(job.id, "interrupted", `${err.message} Try again.`);
+    return fail(job.id, "provider_error", err.message);
+  }
+  if (started.state === "done") return finish(job, started.files);
+  run("UPDATE jobs SET treg_call_id = ?, next_poll_at = ? WHERE id = ?", started.id, Date.now() + 5000, job.id);
+}
+
+async function pollArgo(job: JobRow, output: MediaType) {
+  const cfg = argoConfig();
+  if (!cfg) return fail(job.id, "model_unavailable", "ArgoLink is not set up on this server. Set ARGOLINK_API_KEY.");
+  const later = (ms: number) => void run("UPDATE jobs SET next_poll_at = ? WHERE id = ? AND status = 'running'", Date.now() + ms, job.id);
+  let result;
+  try {
+    result = await argoPoll({ ...cfg, download: downloadResult }, job.treg_call_id!);
+  } catch (err) {
+    if (!(err instanceof ArgoError)) throw err;
+    if (!err.unreachable) return fail(job.id, "provider_error", err.message);
+    if (expired(job, output)) return fail(job.id, "timeout", TOO_SLOW);
+    return later(5000);
+  }
+  if (result.state === "failed") return fail(job.id, "provider_error", result.error);
+  if (result.state === "running") {
+    if (expired(job, output)) return fail(job.id, "timeout", TOO_SLOW);
+    return later(5000);
   }
   await finish(job, result.files);
 }

@@ -7,7 +7,8 @@ import type { User } from "./auth";
 import { balance, hold, release } from "./credits";
 import { all, get, newId, parseJson, run, tx, type Param } from "./db";
 import { ApiError, badRequest, notFound } from "./errors";
-import { comfyConfig, isLocalEndpoint } from "./providers/comfyui";
+import { isLocalEndpoint } from "./providers/comfyui";
+import { localSetupHint } from "./providers/local";
 import { tregMode } from "./treg";
 import { kick, outputOf } from "./worker";
 
@@ -209,7 +210,8 @@ export function submitJobs(user: User, input: SubmitInput): Job[] {
   const asked = Math.floor(Number(input.count)) || 1;
   const quote = quoteJob(model, { prompt, values, media, filled, count: model.batch.native ? asked : Math.min(asked, MAX_BATCH) });
   if (isLocalEndpoint(quote.request.endpoint)) {
-    if (!comfyConfig()) throw new ApiError(409, "model_unavailable", `${model.name} is not set up on this server. Set COMFYUI_BASE_URL.`);
+    const hint = localSetupHint(quote.request.endpoint);
+    if (hint) throw new ApiError(409, "model_unavailable", `${model.name} is not set up on this server. ${hint}`);
   } else if (!catalogEndpoint(quote.request.endpoint)) throw new ApiError(409, "model_unavailable", `${model.name} is not available right now.`);
 
   const have = balance(user.id);

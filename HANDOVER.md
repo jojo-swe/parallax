@@ -23,8 +23,28 @@ Parallax lacks: local and alternative generation backends.
   - `src/server/jobs.ts` accepts local endpoints and refuses them when the URL is not set
   - `workflows/comfyui/txt2img.json`, `img2img.json` the shipped graphs
   - `tests/providers/comfyui.test.ts` mocked tests, run with `npm run test:providers`
+- **ArgoLink backend (branch `agent/claude/argolink-backend`, not in `main` until merged):** 11
+  models with vendor "ArgoLink" (Grok image and video, Seedance 2.5 / edit / extend, Seedance 2.0 /
+  Fast / Mini, Wan 3.0 / Prime, Hailuo H3), called with `ARGOLINK_API_KEY`, no gateway. Same local
+  endpoint idea as ComfyUI: endpoint ids `argolink.image` and `argolink.video`, 0 credits quoted.
+  - `src/registry/argolink.ts` the models and the stored body `{ path, call, media }`; reference
+    files are tokens (`@m0`) in `call` that point into `media`
+  - `src/server/providers/argolink.ts` transport: uploads the files to ArgoLink, sends the call,
+    images come back on it, videos are polled; `local.ts` says which variable is missing
+  - `src/server/worker.ts` `startArgo` / `pollArgo`; the request id goes in `treg_call_id`. ArgoLink
+    jobs are not replayable (no idempotency key), so a dropped connection fails the job
+  - `tests/providers/argolink.test.ts` mocked tests (12), run with `npm run test:providers`
+  - **Money risk:** ArgoLink bills the operator, the models quote 0, so anyone who can sign in can
+    spend the key. Fine for one person on one machine; gate it before sharing the app.
 
 ## Verified
+
+- ArgoLink branch, mocked only: `typecheck`, `check:registry` (51 models, 16951 combinations),
+  `test:providers` (23 tests: 12 new), lint 0 errors, `build`, and the Parallax Python suite
+  (12 files, all pass; `developer.py` caught a model tagline containing the word "build", which the
+  public model list must not leak, so it was reworded). Not run: a live ArgoLink call, the browser
+  walk-throughs, an end-to-end job through the worker with a fake ArgoLink server.
+- Earlier, for ComfyUI:
 
 - `typecheck`, `check:registry` (40 models), `test:providers` (11 tests) and `build` pass; lint has
   0 errors (25 upstream warnings).
@@ -81,8 +101,9 @@ npm run typecheck && npm run check:registry && npm run test:providers && npm run
 
 ## Not ported from the old repo
 
-- **ArgoLink adapter** (`src/generation/providers/argolink*.ts` in `open-higgsfield-multi`). Its
-  models overlap what treg already offers. Port only if a cheaper or separate route is wanted.
+- **ArgoLink reference videos and audio** for the plain video models (the old adapter took them;
+  here only pictures, and a source clip for Seedance 2.5 edit and extend). The adapter itself is
+  ported, see above.
 - **Direct Higgsfield adapter and catalog.** They came from `wide-trace/open-higgsfield`, which has
   no license. Do not copy them into this MIT tree without checking what is original.
 - Vercel Blob upload, the old model picker and the old UI: Parallax has its own.
@@ -94,7 +115,9 @@ npm run typecheck && npm run check:registry && npm run test:providers && npm run
   or let the studio pick a graph from the checkpoint.
 - Decide whether this fork stays public (a GitHub fork of a public repo cannot be made private) or
   moves to a private copy.
-- Decide on ArgoLink.
+- ArgoLink has never been called with a live key from this tree (nor from the old one). Try one
+  cheap image and one short video with your key before relying on it, and add a price (or a
+  per-member limit) if anyone else will use the app.
 - If the studio is ever reachable by anyone else: gate the server keys first. Parallax is a
   multi-user app; run it on your own machine.
 
@@ -110,3 +133,5 @@ npm run typecheck && npm run check:registry && npm run test:providers && npm run
   are now in the repo. Branch `agent/claude/handover-other-pc`; `main` is untouched by this.
   Stale branches that can be deleted: `agent/claude/comfyui-provider`, `agent/claude/handover-real-test`
   (both already contained in `main`).
+- 2026-11-14, Claude Code: ported the ArgoLink adapter from `open-higgsfield-multi` as a local
+  backend (11 models, own key, mocked tests) on branch `agent/claude/argolink-backend`. Not merged.
